@@ -1,0 +1,8 @@
+dictionary.txt
+postings.txt
+metadata.tsv
+
+dataset.csv
+
+.venv/
+.DS_Store

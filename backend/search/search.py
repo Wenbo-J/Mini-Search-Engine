@@ -506,8 +506,8 @@ def parse_args():
     )
     p.add_argument(
         "--metadata-file", "-m",
-        help="Path to your metadata tsv file",
-        default="metadata.tsv"
+        help="Path to your metadata file",
+        default="../scripts/corpus.jsonl"
     )
     return p.parse_args()
 
@@ -521,8 +521,6 @@ def main():
     topk = args.topk
     out_fmt = args.output_format
         
-    print('running search on the query...')
-    
     nltk.download('punkt', quiet=True)
     
     # load dictionary and build base:zone_key map
@@ -537,17 +535,20 @@ def main():
     
     # load metadata if available (for court boosting)
     metadata = {}
-
     try:
         with open(mfile, "r") as m:
             for line in m:
-                parts = line.strip().split('\t')
-                if len(parts) >= 3:
-                    doc, court, date = parts
-                    metadata[int(doc)] = {"court": court, "date": date}
-
-    except:
-        print("no metadata file found in curr dir, doublecheck")
+                doc_data = json.loads(line.strip())
+                doc_id = int(doc_data["id"])
+                metadata[doc_id] = {
+                    "court": doc_data.get("court", "Unknown"),
+                    "date": doc_data.get("date", "Unknown"),
+                    "title": doc_data.get("title", f"Document {doc_id}"),
+                    "content": doc_data.get("content", "No content available")
+                }
+    except Exception as e:
+        print(f"Error loading metadata: {e}", file=sys.stderr)
+        metadata = {}
     
     # open postings, read header
     postings_fh = open(pfile, 'r')
@@ -647,14 +648,16 @@ def main():
             if "date" in metadata[d]:
                 date_boost_value = calculate_date_boost(metadata[d]["date"])
                 scores[d] *= date_boost_value
-            
+    
     ranked = sorted(scores.items(), key=lambda x: (-x[1], x[0]))
     free_text_results = [d for d, _ in ranked]
     
     # for boolean queries, also evaluate as boolean and merge results
     if is_boolean:
         boolean_results = evaluate_boolean_query(query_tokens, dictionary, postings_fh, base2zones)
-        final_results = merge_boolean_and_free(boolean_results, free_text_results)
+        doc_ids = merge_boolean_and_free(boolean_results, free_text_results)
+        # Get scores for these docs
+        final_scores = {d: scores.get(d, 0.0) for d in doc_ids[:topk]}
     else:
         # For free text queries, apply query refinement
         initial_results = free_text_results
@@ -733,19 +736,40 @@ def main():
                 if "date" in metadata[d]:
                     date_boost_value = calculate_date_boost(metadata[d]["date"])
                     refined_scores[d] *= date_boost_value
-                    
+        
         refined_ranked = sorted(refined_scores.items(), key=lambda x: (-x[1], x[0]))
-        final_results = []
-        for i in range(topk):
-            final_results.append(refined_ranked[i][0])
+        final_scores = {d: s for d, s in refined_ranked[:topk]}
+    
+    # Format results with full document information
+    final_results = []
+    for doc_id, score in final_scores.items():
+        result = {
+            "id": str(doc_id),
+            "score": score,
+            "court": "Unknown",
+            "date": "Unknown",
+            "title": f"Document {doc_id}",
+            "snippet": "No content available"
+        }
+        
+        # Add metadata if available
+        if metadata and doc_id in metadata:
+            doc_meta = metadata[doc_id]
+            result.update({
+                "court": doc_meta["court"],
+                "date": doc_meta["date"],
+                "title": doc_meta["title"],
+                "snippet": doc_meta["content"][:200] + "..." if len(doc_meta["content"]) > 200 else doc_meta["content"]
+            })
+            
+        final_results.append(result)
     
     # write out results
     if out_fmt == "json":
-        # simply emit the list of IDs as JSON
         print(json.dumps(final_results))
     else:
-        # one-line, space-separated IDs
-        print(" ".join(str(d) for d in final_results))
+        # one-line, space-separated IDs for backward compatibility
+        print(" ".join(str(d["id"]) for d in final_results))
     
     postings_fh.close()
 

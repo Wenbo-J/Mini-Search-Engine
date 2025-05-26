@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from api.engine import PythonSearchEngine
+from .engine import PythonSearchEngine
 
 class SearchRequest(BaseModel):
     query: str

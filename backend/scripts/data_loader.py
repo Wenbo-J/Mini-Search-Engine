@@ -49,13 +49,13 @@ with open(csv_path, mode='r', encoding='utf-8', newline='') as csvfile, \
     reader = csv.DictReader(csvfile)
     count = 0
     for row in reader:
-        # Basic cleaning
+        # Create document preserving original ID
         doc = {
-            'id': row.get('id', '').strip(),
+            'id': row['document_id'],  # Map document_id to id
             'title': row.get('title', '').strip(),
             'content': row.get('content', '').strip(),
             'court': row.get('court', '').strip(),
-            'date': row.get('date', '').strip(),  # YYYY-MM-DD
+            'date': row.get('date_posted', '').strip(),  # Map date_posted to date
         }
         # Write one JSON object per line
         jsonlfile.write(json.dumps(doc, ensure_ascii=False) + '\n')

@@ -4,6 +4,19 @@ import os
 import json
 import subprocess
 from typing import List, Dict # just in case
+from prometheus_client import Counter, Histogram
+
+# define prometheus metrics
+CACHE_HITS = Counter(
+    "search_cache_hits_total", "Total number of cache hits"
+)
+CACHE_MISSES = Counter(
+    "search_cache_misses_total", "Total number of cache misses"
+)
+REQUEST_LATENCY = Histogram(
+    "search_request_latency_seconds", "Latency of search requests"
+)
+
 
 class SearchEngine:
     def search(self, query: str, top_k: int = 10) -> List[Dict]:
@@ -19,7 +32,7 @@ class PythonSearchEngine(SearchEngine):
         self.search_script = os.path.join(base_dir, 'search', 'search.py')
         self.dict_file = os.path.join(base_dir, 'search', 'dictionary.txt')
         self.postings_file = os.path.join(base_dir, 'search', 'postings.txt')
-        self.metadata_file = os.path.join(base_dir, 'search', '../scripts/corpus.jsonl')  # adjust if needed
+        self.metadata_file = os.path.join(base_dir, 'scripts', 'corpus.jsonl')  # adjust if needed
         self.redis = redis.Redis(host='localhost', port=6379, db=0)
         self.cache_ttl = 3600  # 1 hour
 
@@ -28,13 +41,16 @@ class PythonSearchEngine(SearchEngine):
         h = hashlib.sha256(f"{query}|{top_k}".encode()).hexdigest()
         return f"search:{h}"
 
+    @REQUEST_LATENCY.time()
     def search(self, query: str, top_k: int = 10) -> List[Dict]:
         key = self._cache_key(query, top_k)
         # 1) Try cache
         cached = self.redis.get(key)
         if cached:
+            CACHE_HITS.inc()
             return json.loads(cached)
         
+        CACHE_MISSES.inc()
         # 2) Cache miss: run subprocess :(
         # Construct the CLI command with all required flags
         cmd = [

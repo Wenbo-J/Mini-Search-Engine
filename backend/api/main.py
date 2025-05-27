@@ -1,6 +1,8 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Response
 from pydantic import BaseModel
 from .engine import PythonSearchEngine
+from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
+
 
 class SearchRequest(BaseModel):
     query: str
@@ -18,6 +20,12 @@ class SearchResponse(BaseModel):
     results: list[SearchResult]
 
 app = FastAPI(title="Search Engine API")
+
+# Mount Prometheus metrics at /metrics
+@app.get("/metrics")
+def metrics():
+    data = generate_latest()
+    return Response(content=data, media_type=CONTENT_TYPE_LATEST)
 
 # Initialize the search engine (Python-based)
 engine = PythonSearchEngine()

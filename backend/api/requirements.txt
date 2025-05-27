@@ -1,0 +1,6 @@
+fastapi
+uvicorn[standard]
+pydantic
+nltk
+redis
+prometheus_client

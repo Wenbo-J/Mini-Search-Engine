@@ -7,13 +7,17 @@ const ITEMS_PER_PAGE = 10;
 
 export default function HomePage() {
   const [query, setQuery] = useState('');
-  const { results, loading, error, search } = useSearch();
+  const [currentPage, setCurrentPage] = useState(1);
+  const { results, totalResults, loading, error, avgLatencyMs, cacheHitRate, search } = useSearch();
 
-  const handleSearch = async (e?: FormEvent<HTMLFormElement>) => {
+  const handleSearch = async (e?: FormEvent<HTMLFormElement>, page: number = 1) => {
     if (e) e.preventDefault();
     if (!query.trim()) return;
-    await search(query, ITEMS_PER_PAGE);
+    setCurrentPage(page);
+    await search(query, page, ITEMS_PER_PAGE);
   };
+
+  const totalPages = Math.ceil(totalResults / ITEMS_PER_PAGE);
 
   return (
     <div style={{ fontFamily: 'Arial, sans-serif', maxWidth: '800px', margin: '0 auto', padding: '20px' }}>
@@ -26,7 +30,7 @@ export default function HomePage() {
       <main>
         <h1 style={{ textAlign: 'center', marginBottom: '20px' }}>Quick Legal Retriever</h1>
 
-        <form onSubmit={handleSearch} style={{ display: 'flex', marginBottom: '20px' }}>
+        <form onSubmit={(e) => handleSearch(e, 1)} style={{ display: 'flex', marginBottom: '20px' }}>
           <input
             type="text"
             value={query}
@@ -38,6 +42,16 @@ export default function HomePage() {
             {loading ? 'Searching...' : 'Search'}
           </button>
         </form>
+
+        {/* Metrics Display */}
+        { !loading && !error && (avgLatencyMs !== undefined || cacheHitRate !== undefined) && results.length > 0 && (
+          <div style={{ marginBottom: '20px', padding: '10px', border: '1px solid #eee', borderRadius: '4px', backgroundColor: '#f9f9f9' }}>
+            <h4 style={{marginTop: 0, marginBottom: '5px'}}>Metrics:</h4>
+            {/* avgLatencyMs is a placeholder in backend, will show 0.00ms for now */}
+            {avgLatencyMs !== undefined && <p style={{margin: '2px 0'}}>Avg. Request Latency: {avgLatencyMs.toFixed(2)}ms</p>}
+            {cacheHitRate !== undefined && <p style={{margin: '2px 0'}}>Cache Hit Rate: {(cacheHitRate * 100).toFixed(1)}%</p>}
+          </div>
+        )}
 
         {error && (
           <div style={{ color: 'red', border: '1px solid red', padding: '10px', marginBottom: '20px', borderRadius: '4px' }}>
@@ -56,6 +70,28 @@ export default function HomePage() {
             <SearchResultCard key={result.id} result={result} />
           ))}
         </div>
+
+        {totalResults > 0 && totalPages > 1 && (
+          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginTop: '20px' }}>
+            <button
+              onClick={() => handleSearch(undefined, currentPage - 1)}
+              disabled={currentPage <= 1 || loading}
+              style={{ padding: '8px 12px', margin: '0 5px', cursor: 'pointer' }}
+            >
+              Previous
+            </button>
+            <span>
+              Page {currentPage} of {totalPages}
+            </span>
+            <button
+              onClick={() => handleSearch(undefined, currentPage + 1)}
+              disabled={currentPage >= totalPages || loading}
+              style={{ padding: '8px 12px', margin: '0 5px', cursor: 'pointer' }}
+            >
+              Next
+            </button>
+          </div>
+        )}
       </main>
     </div>
   );

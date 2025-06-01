@@ -14,9 +14,7 @@ export interface SearchResult {
 interface BackendSearchResponse {
   results: SearchResult[];
   total_in_window: number; // Renamed from total, matches backend
-  avg_latency_ms: number; // Added from backend
-  cache_hit_rate: number; // Added from backend
-  // p95Latency, cacheHitRate are still not part of this specific response
+  // avg_latency_ms and cache_hit_rate are removed as they are now fetched via /api/metrics
 }
 
 // Define an interface for the hook's return value
@@ -25,8 +23,6 @@ interface UseSearchResult {
   totalResults: number; // This will be total_in_window from backend
   loading: boolean;
   error: Error | null;
-  avgLatencyMs: number | undefined; // Added for metrics
-  cacheHitRate: number | undefined; // Added for metrics
   search: (query: string, page?: number, limit?: number) => Promise<void>;
 }
 
@@ -35,15 +31,10 @@ const useSearch = (): UseSearchResult => {
   const [totalResults, setTotalResults] = useState<number>(0); // Re-added for pagination
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<Error | null>(null);
-  const [avgLatencyMs, setAvgLatencyMs] = useState<number | undefined>(undefined); // Added state
-  const [cacheHitRate, setCacheHitRate] = useState<number | undefined>(undefined); // Added state
 
   const search = useCallback(async (query: string, page: number = 1, limit: number = 10) => {
     setLoading(true);
     setError(null);
-    // Reset metrics for new search
-    setAvgLatencyMs(undefined);
-    setCacheHitRate(undefined);
     try {
       const response = await fetch('/api/search', {
         method: 'POST',
@@ -62,8 +53,6 @@ const useSearch = (): UseSearchResult => {
       const data: BackendSearchResponse = await response.json();
       setResults(data.results);
       setTotalResults(data.total_in_window); // Set totalResults from backend response
-      setAvgLatencyMs(data.avg_latency_ms);
-      setCacheHitRate(data.cache_hit_rate);
 
     } catch (err) {
       setError(err instanceof Error ? err : new Error('An unknown error occurred'));
@@ -74,7 +63,7 @@ const useSearch = (): UseSearchResult => {
     }
   }, []);
 
-  return { results, totalResults, loading, error, avgLatencyMs, cacheHitRate, search }; // Added metrics to return
+  return { results, totalResults, loading, error, search }; // avgLatencyMs and cacheHitRate removed from return
 };
 
 export default useSearch;

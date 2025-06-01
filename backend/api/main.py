@@ -6,7 +6,8 @@ from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
 
 class SearchRequest(BaseModel):
     query: str
-    top_k: int = 10
+    page: int = 1
+    limit: int = 10
 
 class SearchResult(BaseModel):
     id: str
@@ -18,6 +19,7 @@ class SearchResult(BaseModel):
 
 class SearchResponse(BaseModel):
     results: list[SearchResult]
+    total_in_window: int
 
 app = FastAPI(title="Search Engine API")
 
@@ -37,8 +39,11 @@ def health():
 @app.post("/search", response_model=SearchResponse)
 def search_endpoint(req: SearchRequest):
     try:
-        raw_results = engine.search(req.query, req.top_k)
-        # raw_results should be a list of dicts matching SearchResult fields
-        return {"results": raw_results}
+        engine_response = engine.search(req.query, req.page, req.limit)
+        return {
+            "results": engine_response["page_results"],
+            "total_in_window": engine_response["total_in_window"]
+        }
     except Exception as e:
+        print(f"Error during search: {e}")
         raise HTTPException(status_code=500, detail=str(e))

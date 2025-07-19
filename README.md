@@ -159,4 +159,5 @@ The frontend `next.config.js` is set up to proxy requests from `/api/*` to the b
 - **Clickable Results:** Search result cards are designed to be clickable, linking to a placeholder `/doc/[id]` route. To make this functional, a backend endpoint to fetch full document content by ID and a corresponding Next.js page would need to be implemented.
 - **Caching:** Search results (for a window of documents) are cached in Redis by the backend to improve performance on repeated queries for the same data window.
 
+
 This README provides a general guide. Specific paths and configurations might need adjustments based on your exact project layout and environment.

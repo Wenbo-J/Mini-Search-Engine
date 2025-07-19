@@ -39,11 +39,27 @@ class PythonSearchEngine(SearchEngine):
         self.metadata_file = os.path.join(base_dir, 'scripts', 'corpus.jsonl')  # adjust if needed
         self.redis = redis.Redis(host='localhost', port=6379, db=0)
         self.cache_ttl = 3600  # 1 hour
+        self._dictionary_terms = self._load_dictionary_terms()
 
     def _cache_key(self, query: str) -> str: # Cache key will be for the whole window
         # Use a hash to ensure key length stays reasonable
         h = hashlib.sha256(f"{query}|{PAGINATION_RESULT_WINDOW}".encode()).hexdigest()
         return f"search_window:{h}"
+
+    def _load_dictionary_terms(self) -> List[str]:
+        # Load all terms from dictionary.txt, strip whitespace, ignore empty lines
+        if not os.path.exists(self.dict_file):
+            print(f"Dictionary file not found: {self.dict_file}")
+            return []
+        with open(self.dict_file, 'r', encoding='utf-8') as f:
+            terms = [line.strip() for line in f if line.strip()]
+        return terms
+
+    def get_suggestions(self, prefix: str, limit: int = 5) -> List[str]:
+        # Case-insensitive prefix matching, return up to 'limit' suggestions
+        prefix_lower = prefix.lower()
+        suggestions = [term for term in self._dictionary_terms if term.lower().startswith(prefix_lower)]
+        return suggestions[:limit]
 
     @REQUEST_LATENCY.time() # This will still record latency for the current request
     def search(self, query: str, page: int = 1, limit: int = 10) -> Dict:

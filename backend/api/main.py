@@ -1,7 +1,8 @@
-from fastapi import FastAPI, HTTPException, Response
+from fastapi import FastAPI, HTTPException, Response, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 from .engine import PythonSearchEngine
 from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
+import json
 
 
 class SearchRequest(BaseModel):
@@ -47,3 +48,19 @@ def search_endpoint(req: SearchRequest):
     except Exception as e:
         print(f"Error during search: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.websocket("/ws/suggestions")
+async def websocket_suggestions(websocket: WebSocket):
+    await websocket.accept()
+    try:
+        while True:
+            data = await websocket.receive_text()
+            try:
+                msg = json.loads(data)
+                prefix = msg.get("prefix", "")
+                suggestions = engine.get_suggestions(prefix, limit=5) # Limit to 5 suggestions, can be changed
+                await websocket.send_text(json.dumps({"suggestions": suggestions}))
+            except Exception as e:
+                await websocket.send_text(json.dumps({"error": str(e)}))
+    except WebSocketDisconnect:
+        pass

@@ -29,6 +29,7 @@ export default function HomePage() {
   // Handle input change and send prefix for suggestions
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
+    console.log('Input changed to:', value);
     setQuery(value);
     setShowSuggestions(!!value);
     setHighlightedIndex(-1);
@@ -115,6 +116,16 @@ export default function HomePage() {
                 {searchLoading ? 'Searching...' : 'Search'}
               </button>
             </form>
+            {/* Connection Status Indicator */}
+            <div style={{ 
+              position: 'absolute', 
+              top: '-25px', 
+              right: '0', 
+              fontSize: '12px', 
+              color: suggestionsConnected ? '#28a745' : '#dc3545' 
+            }}>
+              {suggestionsConnected ? '● Connected' : '○ Disconnected'}
+            </div>
             {/* Suggestions Dropdown */}
             {showSuggestions && (suggestionsLoading || suggestions.length > 0) && (
               <ul
